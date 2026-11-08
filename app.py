@@ -191,6 +191,8 @@ NASA notes that roughly 90% of pixels in these interpolated polar elevation maps
 """)
     st.markdown("[NASA product page and file links](https://pgda.gsfc.nasa.gov/products/78)")
     st.markdown("[NASA LOLA data archive](https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/)")
+    st.markdown("[NASA lunar polar illumination and Earth-visibility maps](https://pgda.gsfc.nasa.gov/products/69)")
+    st.markdown("[JPL Horizons API documentation](https://ssd-api.jpl.nasa.gov/doc/horizons.html)")
     st.markdown("[NASA Moon Trek](https://trek.nasa.gov/moon/)")
     st.error("These measurements alone cannot establish landing safety. MoonSight does not calculate a certified landing score and is not a NASA product.")
 
@@ -221,6 +223,7 @@ def get_horizons_altaz(target_id, longitude_east, latitude, selected_date):
         "STEP_SIZE": "'1h'",
         "QUANTITIES": "'4'",
         "CSV_FORMAT": "'YES'",
+        "TIME_TYPE": "'UT'",
     }
     response = requests.get(
         "https://ssd.jpl.nasa.gov/api/horizons.api",
@@ -272,12 +275,12 @@ with st.expander("Candidate coordinates and dates", expanded=True):
         st.subheader("Scenario A")
         lon_a = st.number_input("A east longitude (°)", min_value=-180.0, max_value=180.0, value=0.0, step=0.1, key="h_lon_a")
         lat_a = st.number_input("A latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_a")
-        date_a = st.date_input("A date (UTC)", key="h_date_a")
+        date_a = st.date_input("A date (UT)", key="h_date_a")
     with cb:
         st.subheader("Scenario B")
         lon_b = st.number_input("B east longitude (°)", min_value=-180.0, max_value=180.0, value=90.0, step=0.1, key="h_lon_b")
         lat_b = st.number_input("B latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_b")
-        date_b = st.date_input("B date (UTC)", key="h_date_b")
+        date_b = st.date_input("B date (UT)", key="h_date_b")
 
 if st.button("Compare Sun and Earth positions", type="primary", key="run_horizons"):
     try:
@@ -301,8 +304,8 @@ if st.button("Compare Sun and Earth positions", type="primary", key="run_horizon
                     how="inner",
                 )
                 merged["Scenario"] = label
-                merged["Sun above geometric horizon"] = merged["Sun elevation (°)"] > 0
-                merged["Earth above geometric horizon"] = merged["Earth elevation (°)"] > 0
+                merged["Sun center above geometric horizon"] = merged["Sun elevation (°)"] > 0
+                merged["Earth center above geometric horizon"] = merged["Earth elevation (°)"] > 0
                 scenarios.append(merged)
             result = pd.concat(scenarios, ignore_index=True)
             st.session_state["horizons_result"] = result
@@ -333,11 +336,11 @@ if "horizons_result" in st.session_state:
         sun_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
         earth_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
     for fig, title, ytitle in [
-        (sun_fig, "Sun elevation over the selected UTC day", "Sun elevation (degrees)"),
-        (earth_fig, "Earth elevation over the selected UTC day", "Earth elevation (degrees)"),
+        (sun_fig, "Sun elevation over the selected UT day", "Sun elevation (degrees)"),
+        (earth_fig, "Earth elevation over the selected UT day", "Earth elevation (degrees)"),
     ]:
         fig.add_hline(y=0, line_dash="dash", annotation_text="Geometric horizon")
-        fig.update_layout(title=title, xaxis_title="UTC", yaxis_title=ytitle, height=390)
+        fig.update_layout(title=title, xaxis_title="UT", yaxis_title=ytitle, height=390)
         st.plotly_chart(fig, use_container_width=True)
 
     st.dataframe(result, use_container_width=True, hide_index=True)
@@ -348,9 +351,9 @@ if "horizons_result" in st.session_state:
         "text/csv",
     )
     st.caption(
-        "Interpretation: positive Sun elevation indicates the Sun is above the local geometric "
-        "reference horizon in Horizons; positive Earth elevation indicates the Earth is above "
-        "that geometric horizon. This is not a terrain-shadow or radio-link simulation. Local "
+        "Interpretation: positive Sun-center elevation indicates the Sun center is above the local geometric "
+        "reference horizon in Horizons; positive Earth-center elevation indicates the Earth center is above "
+        "that geometric horizon. This uses the center of each body, not its full apparent disc, and is not a terrain-shadow or radio-link simulation. Local "
         "ridges, crater walls, antenna orientation, link budget, and operational constraints "
         "can still block power or communication."
     )
