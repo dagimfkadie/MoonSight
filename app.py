@@ -1,3 +1,5 @@
+import tempfile
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import requests
@@ -5,174 +7,192 @@ import streamlit as st
 
 st.set_page_config(page_title="MoonSight", page_icon="🌕", layout="wide")
 st.title("🌕 MoonSight")
-st.subheader("Lunar Landing Site Navigator")
-st.write("Explore real lunar south-pole terrain measurements from NASA's Lunar Orbiter Laser Altimeter (LOLA).")
-st.warning("Educational research prototype only. These data are not a landing-safety certification and must not be used for real mission planning.")
+st.subheader("NASA lunar south-pole terrain explorer")
+st.write("Explore elevation, slope, and measurement uncertainty from NASA's Lunar Orbiter Laser Altimeter (LOLA).")
+st.warning("Educational prototype only. Not a landing-safety certification or a tool for real mission planning.")
 
-NASA_DATA_BASE = "https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp"
+BASE = "https://pgda.gsfc.nasa.gov/data/LOLA_5mpp"
 SITES = {
-    "Connecting ridge (Site 01)": "Site01",
-    "Shackleton rim (Site 04)": "Site04",
-    "Peak near Shackleton (Site 07)": "Site07",
-    "de Gerlache rim (Site 11)": "Site11",
-    "Leibnitz beta plateau (Site 20)": "Site20",
-    "Malapert massif (Site 23)": "Site23",
+    "Connecting ridge": "Site01",
+    "Shackleton rim": "Site04",
+    "Nobile rim 1": "Site06",
+    "Peak near Shackleton": "Site07",
+    "de Gerlache rim": "Site11",
+    "Leibnitz beta plateau": "Site20",
+    "Leibnitz beta plateau (extended)": "Site20v2",
+    "Malapert massif": "Site23",
+    "de Gerlache-Kocher massif": "Site42",
+}
+PRODUCTS = {
+    "Elevation": ("surf", "metres"),
+    "Slope": ("slp", "degrees"),
+    "Elevation uncertainty": ("toterr", "metres RMS"),
+    "Slope uncertainty": ("slperr", "degrees RMS"),
+    "LOLA return count": ("ldec", "returns per pixel"),
 }
 
-@st.cache_data(show_spinner=False, ttl=86400)
-def load_lola_raster(site_code: str, product: str):
+@st.cache_data(ttl=86400, show_spinner=False)
+def load_raster(site, product, max_dimension):
     import rasterio
-    from rasterio.io import MemoryFile
+    from rasterio.enums import Resampling
+    from rasterio.transform import xy
 
-    if product == "Elevation":
-        filename = f"{site_code}_final_adj_5mpp_surf.tif"
-    else:
-        filename = f"{site_code}_final_adj_5mpp_slp.tif"
-    url = f"{NASA_DATA_BASE}/{site_code}/{filename}"
-    response = requests.get(url, timeout=120)
-    response.raise_for_status()
+    suffix, unit = PRODUCTS[product]
+    filename = f"{site}_final_adj_5mpp_{suffix}.tif"
+    url = f"{BASE}/{site}/{filename}"
+    with requests.get(url, stream=True, timeout=(20, 180)) as response:
+        response.raise_for_status()
+        with tempfile.NamedTemporaryFile(suffix=".tif") as tmp:
+            for chunk in response.iter_content(1024 * 1024):
+                if chunk:
+                    tmp.write(chunk)
+            tmp.flush()
+            with rasterio.open(tmp.name) as ds:
+                scale = min(1.0, max_dimension / max(ds.width, ds.height))
+                out_w = max(1, int(ds.width * scale))
+                out_h = max(1, int(ds.height * scale))
+                arr = ds.read(1, out_shape=(out_h, out_w), resampling=Resampling.average, masked=True)
+                arr = np.ma.filled(arr.astype("float64"), np.nan)
+                transform = ds.transform * ds.transform.scale(ds.width / out_w, ds.height / out_h)
+                xs = [xy(transform, 0, c, offset="center")[0] for c in range(out_w)]
+                ys = [xy(transform, r, 0, offset="center")[1] for r in range(out_h)]
+                valid = arr[np.isfinite(arr)]
+                if valid.size == 0:
+                    raise ValueError("No valid data pixels were found.")
+                stats = {
+                    "mean": float(np.mean(valid)),
+                    "median": float(np.median(valid)),
+                    "p90": float(np.percentile(valid, 90)),
+                    "min": float(np.min(valid)),
+                    "max": float(np.max(valid)),
+                    "valid": int(valid.size),
+                    "source_shape": (int(ds.height), int(ds.width)),
+                    "preview_shape": (out_h, out_w),
+                    "crs": str(ds.crs),
+                    "pixel_size": tuple(float(v) for v in ds.res),
+                }
+    return {"array": arr, "x": xs, "y": ys, "stats": stats, "url": url, "unit": unit}
 
-    with MemoryFile(response.content) as memfile:
-        with memfile.open() as dataset:
-            out_height = min(dataset.height, 220)
-            out_width = min(dataset.width, 220)
-            values = dataset.read(1, out_shape=(out_height, out_width)).astype("float64")
-            nodata = dataset.nodata
-            crs = str(dataset.crs) if dataset.crs else "Not supplied"
-            width, height = dataset.width, dataset.height
-
-    if nodata is not None:
-        values[values == nodata] = float("nan")
-    values[~pd.notna(values)] = float("nan")
-    valid = values[~pd.isna(values)]
-    if valid.size == 0:
-        raise ValueError("The selected raster contains no valid pixels.")
-
-    series = pd.Series(valid)
-    return {
-        "array": values,
-        "minimum": float(series.min()),
-        "maximum": float(series.max()),
-        "mean": float(series.mean()),
-        "median": float(series.median()),
-        "p90": float(series.quantile(0.90)),
-        "valid_pixels": int(valid.size),
-        "original_width": width,
-        "original_height": height,
-        "crs": crs,
-        "url": url,
-    }
+def show_map(result, title):
+    fig = go.Figure(go.Heatmap(
+        z=result["array"], x=result["x"], y=result["y"],
+        colorbar={"title": result["unit"]},
+        hovertemplate="X: %{x:,.1f} m<br>Y: %{y:,.1f} m<br>Value: %{z:.3f}<extra></extra>",
+        connectgaps=False,
+    ))
+    fig.update_layout(
+        title=title, height=560,
+        xaxis_title="South-polar stereographic X (m)",
+        yaxis_title="South-polar stereographic Y (m)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    st.caption("Coordinates are lunar map-projection X/Y in metres, not latitude/longitude. The displayed grid is downsampled.")
 
 with st.sidebar:
-    st.header("NASA LOLA dataset")
-    selected_site = st.selectbox("South-pole study area", list(SITES))
-    product = st.radio("Terrain measurement", ["Elevation", "Slope"])
-    st.caption("Source resolution: 5 metres per pixel.")
-    load_button = st.button("Load NASA measurements", type="primary", use_container_width=True)
-    st.divider()
-    st.markdown("[Open NASA Moon Trek](https://trek.nasa.gov/moon/)")
-    st.markdown("[Open NASA LOLA dataset archive](https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp/)")
+    st.header("NASA LOLA data")
+    site_name = st.selectbox("Study area", list(SITES))
+    site = SITES[site_name]
+    product = st.selectbox("Data product", list(PRODUCTS))
+    detail = st.select_slider("Preview resolution", options=[250, 400, 600, 800], value=400)
+    load = st.button("Load NASA data", type="primary", use_container_width=True)
+    st.caption("Internet required. Loaded rasters are cached for 24 hours.")
+    st.markdown("[NASA data product page](https://pgda.gsfc.nasa.gov/products/78)")
+    st.markdown("[NASA Moon Trek](https://trek.nasa.gov/moon/)")
 
-site_code = SITES[selected_site]
-st.info(f"Selected study area: **{selected_site}**. Press **Load NASA measurements** to retrieve the real GeoTIFF from NASA.")
-
-if load_button:
+if load:
     try:
-        with st.spinner("Retrieving NASA LOLA GeoTIFF and processing terrain pixels..."):
-            result = load_lola_raster(site_code, product)
-        st.session_state["lola_result"] = result
-        st.session_state["lola_site"] = selected_site
-        st.session_state["lola_product"] = product
+        with st.spinner("Downloading and processing NASA GeoTIFF..."):
+            st.session_state["raster"] = load_raster(site, product, detail)
+            st.session_state["raster_key"] = (site, product, detail)
+    except requests.RequestException as exc:
+        st.error("NASA's server could not complete the download. Check your connection and try again.")
+        st.caption(f"{type(exc).__name__}: {exc}")
     except Exception as exc:
-        st.error("NASA data could not be loaded. Check your internet connection and try again; the archive may also be temporarily unavailable.")
-        st.caption(f"Technical detail: {type(exc).__name__}: {exc}")
+        st.error("The raster could not be processed.")
+        st.caption(f"{type(exc).__name__}: {exc}")
 
-overview, explorer, comparison, science = st.tabs(["Overview", "Terrain Explorer", "Compare Sites", "Science & Sources"])
+overview, map_tab, compare, sources = st.tabs(["Overview", "Terrain map", "Compare sites", "Science & sources"])
 
 with overview:
-    st.header("What the NASA data tells us")
-    st.markdown("""
-MoonSight retrieves real LOLA terrain GeoTIFFs from NASA's South Pole landing-site archive.
-Select **Elevation** to inspect surface height, or **Slope** to inspect terrain steepness.
-
-A lower slope can be one useful terrain-screening factor, but it does not prove that a site is safe.
-Rocks, craters, illumination, communications, thermal conditions and spacecraft constraints also matter.
-""")
-    if "lola_result" in st.session_state:
-        r = st.session_state["lola_result"]
-        if st.session_state.get("lola_site") == selected_site and st.session_state.get("lola_product") == product:
-            unit = "m" if product == "Elevation" else "degrees"
-            a, b, c, d = st.columns(4)
-            a.metric(f"Mean {product.lower()}", f"{r['mean']:.2f} {unit}")
-            b.metric(f"Median {product.lower()}", f"{r['median']:.2f} {unit}")
-            c.metric("90th percentile", f"{r['p90']:.2f} {unit}")
-            d.metric("Valid sampled pixels", f"{r['valid_pixels']:,}")
-            st.caption(f"Original raster: {r['original_width']:,} × {r['original_height']:,} pixels. The visualization and summary statistics use a downsampled raster for this prototype.")
-        else:
-            st.info("Load the currently selected site and measurement to display its results.")
+    st.header("What MoonSight measures")
+    st.write("The app retrieves real NASA LOLA GeoTIFF files and displays terrain height, slope, uncertainty, and the number of laser returns per pixel.")
+    st.dataframe(pd.DataFrame([{"Region": n, "NASA ID": code} for n, code in SITES.items()]), use_container_width=True, hide_index=True)
+    if st.session_state.get("raster_key") == (site, product, detail):
+        r = st.session_state["raster"]
+        s = r["stats"]
+        st.subheader("Loaded raster summary")
+        a, b, c, d = st.columns(4)
+        a.metric("Mean", f"{s['mean']:.3f} {r['unit']}")
+        b.metric("Median", f"{s['median']:.3f} {r['unit']}")
+        c.metric("90th percentile", f"{s['p90']:.3f} {r['unit']}")
+        d.metric("Valid preview pixels", f"{s['valid']:,}")
+        st.caption(f"Original raster: {s['source_shape'][1]:,} × {s['source_shape'][0]:,}; preview: {s['preview_shape'][1]:,} × {s['preview_shape'][0]:,}; source pixel size: {s['pixel_size']}.")
     else:
-        st.info("No NASA raster loaded yet. Choose a study area and press the load button.")
+        st.info("Choose a study area and product, then press Load NASA data.")
 
-with explorer:
-    st.header("NASA LOLA terrain explorer")
-    if "lola_result" in st.session_state:
-        r = st.session_state["lola_result"]
-        if st.session_state.get("lola_site") == selected_site and st.session_state.get("lola_product") == product:
-            unit = "metres" if product == "Elevation" else "degrees"
-            fig = go.Figure(data=go.Heatmap(z=r["array"], colorbar={"title": unit}, hoverongaps=False))
-            fig.update_layout(
-                title=f"{selected_site} — NASA LOLA {product}",
-                xaxis_title="Raster sample column (not longitude)",
-                yaxis_title="Raster sample row (not latitude)",
-                height=600,
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            st.caption("This is a raster-value view, not a georeferenced latitude/longitude map. The source GeoTIFF uses a lunar south-polar stereographic coordinate system.")
-            st.write(f"Source file: [{site_code} {product} GeoTIFF]({r['url']})")
-            st.write(f"Source coordinate reference: {r['crs']}")
-        else:
-            st.info("Load the selected site and measurement to view its raster.")
+with map_tab:
+    if st.session_state.get("raster_key") == (site, product, detail):
+        r = st.session_state["raster"]
+        show_map(r, f"{site_name} — {product}")
+        st.write(f"NASA source: [{site}_{PRODUCTS[product][0]}.tif]({r['url']})")
+        st.write(f"Coordinate reference: {r['stats']['crs']}")
+        grid = pd.DataFrame(r["array"], index=r["y"], columns=r["x"])
+        grid.index.name = "Y map coordinate (m)"
+        grid.columns.name = "X map coordinate (m)"
+        st.download_button("Download preview as CSV", grid.to_csv().encode(), f"{site}_{PRODUCTS[product][0]}_preview.csv", "text/csv")
     else:
-        st.info("Load NASA measurements to display the terrain raster.")
+        st.info("Load the selected NASA raster to see its map.")
 
-with comparison:
-    st.header("Compare NASA study areas")
-    st.write("Select a study area in the sidebar and load its elevation or slope raster. Record the displayed statistics for each site to compare them. Automated multi-site comparison can be added after verifying each raster's coverage and metadata.")
-    st.dataframe(pd.DataFrame([
-        {"NASA study area": name, "Archive ID": code, "Available products": "Elevation + slope"}
-        for name, code in SITES.items()
-    ]), use_container_width=True, hide_index=True)
+with compare:
+    st.header("Compare two study areas")
+    left, right = st.columns(2)
+    with left:
+        name_a = st.selectbox("Study area A", list(SITES), index=0)
+    with right:
+        name_b = st.selectbox("Study area B", list(SITES), index=1)
+    compare_product = st.selectbox("Product to compare", list(PRODUCTS), key="compare_product")
+    if st.button("Load comparison"):
+        try:
+            with st.spinner("Retrieving both NASA products..."):
+                a = load_raster(SITES[name_a], compare_product, 300)
+                b = load_raster(SITES[name_b], compare_product, 300)
+            rows = []
+            for name, item in [(name_a, a), (name_b, b)]:
+                s = item["stats"]
+                rows.append({"Study area": name, "Mean": s["mean"], "Median": s["median"], "90th percentile": s["p90"], "Unit": item["unit"]})
+            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            st.caption("Statistics describe downsampled previews of the full archive tiles, not selected landing ellipses.")
+            ca, cb = st.columns(2)
+            with ca:
+                show_map(a, name_a)
+            with cb:
+                show_map(b, name_b)
+        except Exception as exc:
+            st.error("Comparison failed. Check your connection and try again.")
+            st.caption(f"{type(exc).__name__}: {exc}")
 
-with science:
-    st.header("Scientific method and data provenance")
+with sources:
+    st.header("NASA data provenance")
     st.markdown("""
-**Primary dataset — NASA LOLA South Pole Landing Site DEMs**
+**Instrument:** Lunar Orbiter Laser Altimeter (LOLA), aboard NASA's Lunar Reconnaissance Orbiter.
 
-- Instrument: Lunar Orbiter Laser Altimeter (LOLA), aboard NASA's Lunar Reconnaissance Orbiter.
-- Products: surface-interpolated elevation maps and slope maps.
-- Published raster resolution: 5 metres per pixel.
-- Coordinate reference: south-polar stereographic, Moon_ME frame, DE421.
-- Study areas: Connecting ridge, Shackleton rim, Peak near Shackleton, de Gerlache rim, Leibnitz beta plateau and Malapert massif.
+**NASA products used:**
+- surf — surface-interpolated elevation (metres)
+- slp — terrain slope (degrees)
+- toterr — total elevation uncertainty (RMS metres)
+- slperr — slope uncertainty (RMS degrees)
+- ldec — number of LOLA returns in each pixel
 
-**How MoonSight uses it**
+NASA describes these GeoTIFFs as 5 m/pixel, with south-polar stereographic X/Y coordinates in metres, Moon_ME reference frame, DE421 ephemeris.
 
-1. Downloads the selected elevation or slope GeoTIFF directly from NASA's archive.
-2. Reads the raster and handles its no-data value.
-3. Calculates descriptive statistics from a downsampled raster.
-4. Displays the raster as a heatmap for visual exploration.
+NASA notes that roughly 90% of pixels in these interpolated polar elevation maps are interpolated. The LOLA return-count and uncertainty layers therefore provide important context for interpreting the maps.
 
-**Limitations**
-
-- Heatmaps are shown in raster pixel coordinates, not latitude/longitude.
-- The prototype does not calculate a certified landing score.
-- Elevation and slope alone cannot establish landing safety.
-- NASA data availability depends on an internet connection.
+**Scientific reference:** Barker et al. (2021), *Improved LOLA Elevation Maps for South Pole Landing Sites: Error Estimates and Their Impact on Illumination Conditions*, Planetary and Space Science, 203, 105119. [DOI](https://doi.org/10.1016/j.pss.2020.105119)
 """)
-    st.markdown("[NASA LOLA South Pole Landing Site DEM archive](https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp/)")
-    st.markdown("[NASA LRO instrument and data overview](https://science.nasa.gov/mission/lro/data-products/)")
+    st.markdown("[NASA product page and file links](https://pgda.gsfc.nasa.gov/products/78)")
+    st.markdown("[NASA LOLA data archive](https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/)")
     st.markdown("[NASA Moon Trek](https://trek.nasa.gov/moon/)")
-    st.markdown("[NASA Planetary Data System — LRO archive](https://pds-geosciences.wustl.edu/missions/lro/)")
-    st.error("MoonSight is an educational prototype, not a certified lunar navigation, landing-site selection, or mission decision-support system.")
+    st.error("These measurements alone cannot establish landing safety. MoonSight does not calculate a certified landing score and is not a NASA product.")
 
 st.divider()
-st.caption("MoonSight | NASA LOLA data integration | Explore. Analyze. Discover.")
+st.caption("MoonSight | NASA LRO-LOLA terrain data | Explore. Analyze. Discover.")
