@@ -42,3 +42,21 @@ Mazarico, E., et al. (2011). *Illumination conditions of the lunar polar regions
 NASA's product description explains that the improved 5 m/pixel LDEMs for the initial study regions contain a large fraction of interpolated pixels (approximately 90%). This is a property of the described products and should not be assumed identical for every tile or every derived layer. The LOLA return-count and uncertainty layers should be considered alongside elevation and slope.
 
 These datasets are research products, not landing approvals. A site-wide average does not describe the hazards in a particular landing ellipse. MoonSight is an independent educational project and is not endorsed by NASA.
+
+## Date-specific Sun and Earth ephemerides
+
+MoonSight also queries the NASA/JPL Horizons API for the apparent azimuth and elevation of the Sun (target ID 10) and Earth (target ID 399) as viewed from a user-defined lunar surface point (Moon body ID 301).
+
+- API documentation: https://ssd-api.jpl.nasa.gov/doc/horizons.html
+- API endpoint: https://ssd.jpl.nasa.gov/api/horizons.api
+
+The application uses observer ephemerides, geodetic lunar site coordinates, UT time, and azimuth/elevation quantity 4. Results are sampled hourly over the selected UT date.
+
+JPL Horizons reference manual: https://ssd.jpl.nasa.gov/horizons/manual.html
+
+## Long-term lunar illumination and Earth visibility context
+
+NASA PGDA also provides long-term average polar solar illumination and Earth-visibility maps:
+https://pgda.gsfc.nasa.gov/products/69
+
+Those products average over long periods (including an 18.6-year lunar nutation cycle in the described products) and should not be confused with the date-specific Horizons output.
