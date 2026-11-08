@@ -1,6 +1,6 @@
 # MoonSight — demonstration guide
 
-## Suggested 90-second walkthrough
+## Suggested 2-minute walkthrough
 
 **0:00–0:15 — The problem**
 
@@ -18,13 +18,20 @@
 4. Show the heatmap and explain that its axes are south-polar map coordinates in metres.
 5. Switch to Slope, then to Elevation uncertainty or LOLA return count.
 
-**0:55–1:15 — Comparison**
+**0:55–1:25 — Sun and Earth geometry**
+
+1. Scroll to the JPL Horizons panel.
+2. Explain that the coordinates must be the actual longitude and latitude of the candidate surface points.
+3. Compare two candidate points and dates.
+4. Show the Sun and Earth elevation plots and explain the zero-degree geometric horizon line.
+
+**1:25–1:45 — Terrain comparison**
 
 "MoonSight lets us compare two archive study areas using the same terrain measurement. The current comparison uses downsampled previews, so these values are exploratory summaries, not landing-ellipse scores."
 
-**1:15–1:30 — Limitations and next step**
+**1:45–2:00 — Limitations and next step**
 
-"NASA's documentation warns that many 5-metre elevation pixels are interpolated. That's why MoonSight includes uncertainty and data-count layers. The next research step is to combine terrain with illumination and local hazard data. This prototype does not certify landing safety."
+"NASA's documentation warns that many 5-metre elevation pixels are interpolated. That's why MoonSight includes uncertainty and data-count layers. The next research step is to combine date-specific ephemerides with terrain-aware horizon obstruction and NASA's long-term polar illumination maps. This prototype does not certify landing safety."
 
 ## Before recording
 
@@ -34,3 +41,10 @@
 - Do not invent or claim a best or safest landing site.
 - Make clear which values are downsampled preview statistics.
 - Mention the selected official NASA Space Apps challenge in the introduction and explain how the project addresses it.
+
+## Important live-demo checks for Horizons
+
+- Enter real candidate coordinates, not the default demonstration points.
+- Confirm the JPL Horizons panel returns a table and both plots.
+- Explain that JPL output is the apparent direction of the body center relative to a geometric reference plane.
+- Do not describe positive Earth-center elevation as a confirmed radio link; local terrain and communications engineering are not yet modeled.
