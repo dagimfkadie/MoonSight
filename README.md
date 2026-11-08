@@ -37,12 +37,20 @@ NASA provides GeoTIFF products at 5 m/pixel with south-polar stereographic X/Y c
 
 NASA's product description notes that roughly 90% of pixels in the improved 5 m/pixel LDEMs for the initial study regions are interpolated. This should not be assumed identical for every tile or derived layer. The return-count and uncertainty products are therefore important context.
 
+## 2026 NASA Space Apps challenge alignment
+
+MoonSight is being developed for the official [Lunar Landing Site Navigator](https://www.spaceappschallenge.org/2026/challenges/lunar-landing-site-navigator/) challenge.
+
+The challenge asks teams to help compare lunar south-pole sites and dates by visualizing Sun and Earth positions relative to the horizon, solar power potential, and direct-to-Earth communication opportunities.
+
+MoonSight now includes a JPL Horizons comparison panel that requests date-specific Sun and Earth azimuth/elevation for two user-entered lunar surface coordinates. Users must enter the actual coordinates of their candidate points; the preset coordinates are generic demonstrations and are not the centers of the LOLA archive regions.
+
 ## Features
 
 - Load NASA elevation, slope, elevation uncertainty, slope uncertainty, and LOLA return-count GeoTIFFs.
 - Display downsampled heatmaps using the source south-polar stereographic X/Y coordinates.
 - Inspect preview statistics.
-- Compare two study areas for the same product.
+- Compare two study areas for the same terrain product.\n- Compare Sun and Earth azimuth/elevation for two lunar surface points and dates using the JPL Horizons API.
 - Export preview values as CSV.
 
 ## How it works
@@ -53,7 +61,7 @@ NASA's product description notes that roughly 90% of pixels in the improved 5 m/
 4. The source geotransform is used to label the heatmap in lunar map-projection coordinates.
 5. Descriptive statistics are calculated from the displayed preview.
 
-An internet connection is required. Loaded rasters are cached for 24 hours.
+An internet connection is required. Loaded rasters are cached for 24 hours. JPL Horizons ephemerides are cached for one hour.
 
 ## Run locally
 
@@ -64,6 +72,14 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
+## Sun/Earth geometry limitations
+
+JPL Horizons supplies apparent azimuth and elevation from a user-defined topocentric point on the Moon. The current display samples one UT day at hourly intervals. It compares the centers of the Sun and Earth against the local geometric reference plane.
+
+This is not a terrain-aware horizon calculation. Crater rims and nearby ridges can block the Sun or Earth even when the body center is geometrically above the reference plane. The Earth is an extended disc, so center elevation is not identical to NASA's full-disc Earth-visibility definition. Communication also depends on antenna pointing, link budget, spacecraft geometry, and ground-network availability.
+
+NASA separately publishes long-term average lunar-polar solar-illumination and Earth-visibility maps: https://pgda.gsfc.nasa.gov/products/69. These products average over long time periods and do not replace date-specific analysis.
+
 ## Scientific limitations
 
 - Statistics describe the downsampled preview of an entire archive tile, not a defined landing ellipse.
@@ -73,7 +89,13 @@ streamlit run app.py
 - MoonSight does not calculate a certified landing score and must not be used for actual spacecraft navigation or mission decisions.
 - MoonSight is not a NASA product and is not endorsed by NASA.
 
-See [NASA data attribution and citations](NASA_DATA_CITATION.md) for the full data citation and interpretation notes. A short [demo guide](DEMO_SCRIPT.md) is also included.\n\n## Scientific reference
+See [NASA data attribution and citations](NASA_DATA_CITATION.md) for the full data citation and interpretation notes. A short [demo guide](DEMO_SCRIPT.md) is also included.\n\n## Additional ephemeris source
+
+NASA/JPL Horizons API documentation: https://ssd-api.jpl.nasa.gov/doc/horizons.html
+
+The Horizons API supports user-defined topocentric coordinates on bodies with a defined rotation model and provides apparent azimuth/elevation output. MoonSight requests the Sun (ID 10) and Earth (ID 399) as seen from a custom point on the Moon (body 301).
+
+## Scientific reference
 
 Barker, M. K. et al. (2021). *Improved LOLA Elevation Maps for South Pole Landing Sites: Error Estimates and Their Impact on Illumination Conditions*. Planetary and Space Science, 203, 105119. https://doi.org/10.1016/j.pss.2020.105119
 
