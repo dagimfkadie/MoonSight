@@ -207,6 +207,7 @@ def get_horizons_altaz(target_id, longitude_east, latitude, selected_date):
     from datetime import timedelta
     from io import StringIO
 
+    longitude_east = longitude_east % 360.0
     start = selected_date.isoformat()
     stop = (selected_date + timedelta(days=1)).isoformat()
     params = {
