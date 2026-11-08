@@ -1,138 +1,65 @@
-
 # 🌕 MoonSight — Lunar Landing Site Navigator
 
-**Explore the Moon. Compare landing locations. Understand the lunar environment.**
+**Explore the Moon using real lunar terrain measurements.**
 
-MoonSight is an interactive educational web application designed to help users explore potential lunar landing locations and understand the environmental conditions that could affect future Moon missions.
+MoonSight is an educational web application for exploring NASA Lunar Reconnaissance Orbiter (LRO) terrain data from selected lunar south-pole study areas.
 
-By combining lunar geographic information, sunlight visualization, Earth visibility, and communication-window estimates, MoonSight brings important aspects of lunar exploration into one interactive platform.
+## NASA data integrated
 
-## 🚀 Project Overview
+MoonSight retrieves NASA's **LOLA South Pole Landing Site DEM** GeoTIFF products directly from the NASA Goddard Planetary Geology, Geophysics and Geochemistry Laboratory archive.
 
-Choosing a suitable lunar landing location involves understanding several environmental factors. MoonSight aims to make these factors easier to explore through an accessible, interactive dashboard.
+The archive provides, for six named south-pole study areas:
+- Surface-interpolated elevation maps (LDEM)
+- Slope maps in degrees
+- Additional products including data-count and uncertainty maps
 
-Users can select locations, explore lunar surface information, compare dates, and examine estimated environmental conditions.
+The elevation and slope GeoTIFF products are documented at **5 metres per pixel** and use south-polar stereographic X/Y coordinates in the Moon_ME reference frame (DE421).
 
-## ✨ Key Features
+### Study areas
 
-### 1. Interactive Lunar Map
-- Explore selected regions of the Moon.
-- Select and examine potential landing locations.
-- View geographic information about selected areas.
+- Site 01 — Connecting ridge
+- Site 04 — Shackleton rim
+- Site 07 — Peak near Shackleton
+- Site 11 — de Gerlache rim
+- Site 20 — Leibnitz beta plateau
+- Site 23 — Malapert massif
 
-### 2. Lunar Lighting Explorer
-- Select different dates for comparison.
-- Explore estimated sunlight conditions.
-- Understand how illumination changes over time.
+**Primary data source:** [NASA LOLA South Pole Landing Site DEMs](https://core2.gsfc.nasa.gov/PGDA/LOLA_5mpp/)
 
-### 3. Sun Position Visualization
-- Visualize the estimated direction of sunlight.
-- Explore how the Sun's position affects lunar surface illumination.
-- Understand the importance of lighting for lunar exploration.
+**Instrument background:** [NASA LRO data products](https://science.nasa.gov/mission/lro/data-products/)
 
-### 4. Earth Visibility and Communication
-- Explore estimated Earth visibility from selected locations.
-- Understand how location and lunar geometry affect communication opportunities.
-- Visualize potential communication windows.
+**Additional exploration tool:** [NASA Moon Trek](https://trek.nasa.gov/moon/)
 
-### 5. Landing Site Comparison Dashboard
-Compare selected locations using available information, including:
-- Geographic characteristics
-- Surface illumination
-- Earth visibility
-- Estimated communication opportunities
+## How the integration works
 
-## 🛰️ Why MoonSight?
+1. Select a NASA study area and choose elevation or slope.
+2. MoonSight downloads the corresponding GeoTIFF from NASA.
+3. The app reads the raster, handles no-data pixels, and calculates descriptive statistics from a downsampled raster.
+4. It displays a heatmap of the raster values.
 
-Future lunar missions require careful consideration of landing locations and environmental conditions.
+The app requires an internet connection to retrieve the NASA data. Raster files are cached for 24 hours to reduce repeated downloads.
 
-MoonSight aims to make lunar exploration data more understandable and accessible by combining multiple information sources into one interactive experience.
-
-The project is designed as an educational prototype, not a certified lunar mission-planning system.
-
-## 🛠️ Technology Stack
-
-| Technology | Purpose |
-|---|---|
-| Python | Main programming language |
-| Streamlit | Interactive web application |
-| Pandas | Data processing |
-| Plotly | Interactive visualizations |
-| NASA datasets | Lunar exploration information |
-
-## 📡 Data Sources
-
-MoonSight is designed to use publicly available scientific data, including relevant NASA lunar datasets.
-
-Potential sources include:
-
-- [NASA Open Data Portal](https://data.nasa.gov/)
-- [NASA Scientific Visualization Studio](https://svs.gsfc.nasa.gov/)
-- [NASA Planetary Data System](https://pds.nasa.gov/)
-- [NASA/JPL Solar System Dynamics](https://ssd.jpl.nasa.gov/)
-
-Specific datasets and their use will be documented as they are integrated.
-
-## 💻 Installation
-
-Clone the repository:
+## Run locally
 
 ```bash
 git clone https://github.com/dagimfkadie/MoonSight.git
 cd MoonSight
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-Run the application:
-
-```bash
 streamlit run app.py
 ```
 
-## 📁 Project Structure
+## Scientific limitations
 
-```text
-MoonSight/
-│
-├── app.py
-├── requirements.txt
-├── README.md
-│
-├── data/
-│   └── README.md
-│
-├── modules/
-│   ├── lunar_map.py
-│   ├── lighting.py
-│   ├── sun_position.py
-│   ├── earth_visibility.py
-│   └── comparison.py
-│
-└── assets/
-    └── README.md
-```
+- The current heatmap uses raster row and column indices, not geographic latitude/longitude.
+- The prototype does not yet calculate a certified landing suitability score.
+- Elevation and slope are only two factors. Illumination, rocks, craters, thermal conditions, communications, navigation uncertainty, and spacecraft constraints also matter.
+- The visualized study areas are research locations in NASA's archive, not declarations of approved or safe landing sites.
+- MoonSight is not a NASA product and is not endorsed by NASA.
 
-## 🌍 Our Mission
-
-Our goal is to make scientific information about the Moon more accessible and help people better understand the challenges of future lunar exploration.
-
-**Explore. Analyze. Discover.**
-
-## 👥 Team
+## Team
 
 Developed by a student team from Ethiopia for NASA Space Apps Challenge 2026.
 
-## ⚠️ Scientific Limitations
+## License
 
-MoonSight is an educational prototype. Estimates and visualizations will be identified clearly, and scientific calculations will be documented with their assumptions and data sources.
-
-It must not be used for actual spacecraft navigation or mission decisions.
-
-## 📜 License
-
-This project is intended for educational and research purposes. A license will be added to clarify reuse and distribution.
+A license should be selected by the project team before public reuse.
