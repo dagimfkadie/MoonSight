@@ -43,7 +43,23 @@ MoonSight is being developed for the official [Lunar Landing Site Navigator](htt
 
 The challenge asks teams to help compare lunar south-pole sites and dates by visualizing Sun and Earth positions relative to the horizon, solar power potential, and direct-to-Earth communication opportunities.
 
-MoonSight now includes a JPL Horizons comparison panel that requests date-specific Sun and Earth azimuth/elevation for two user-entered lunar surface coordinates. Users must enter the actual coordinates of their candidate points; the preset coordinates are generic demonstrations and are not the centers of the LOLA archive regions. The app also displays a normalized horizontal solar-incidence proxy, max(0, sin(Sun elevation)), which is not a real power-generation estimate.
+MoonSight now includes a JPL Horizons comparison panel that requests date-specific Sun and Earth azimuth/elevation for two user-entered lunar surface coordinates. MoonSight uses the published center coordinates for the named LOLA study regions from NASA's 2025 Lunar Surface Data Book. NASA states that these centers were derived from the DEM polygons and are accurate to approximately 5–10 metres. They are regional reference points, not a specific landing ellipse. The app also displays a normalized horizontal solar-incidence proxy, max(0, sin(Sun elevation)), which is not a real power-generation estimate.
+
+### Published region-center coordinates
+
+| Study area | Latitude (°) | East longitude (°) |
+|---|---:|---:|
+| Connecting ridge | -89.4632 | -137.49000 |
+| Shackleton rim | -89.7668 | -171.87000 |
+| Nobile rim 1 | -85.4381 | 37.36667 |
+| Peak near Shackleton | -88.8110 | 123.69010 |
+| de Gerlache rim | -88.6834 | -67.93210 |
+| Leibnitz beta plateau | -85.4266 | 31.74276 |
+| Leibnitz beta plateau (extended) | -85.4266 | 31.74276 |
+| Malapert massif | -85.9948 | -0.23578 |
+| de Gerlache-Kocher massif | -85.8296 | -116.32200 |
+
+Source: [NASA Lunar Surface Data Book (2025)](https://ntrs.nasa.gov/citations/20250002845). Longitudes are normalized to 0–360° east when sent to Horizons.
 
 ## Features
 
