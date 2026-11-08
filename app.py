@@ -196,3 +196,161 @@ NASA notes that roughly 90% of pixels in these interpolated polar elevation maps
 
 st.divider()
 st.caption("MoonSight | NASA LRO-LOLA terrain data | Explore. Analyze. Discover.")
+
+
+# Date-specific Sun and Earth geometry from NASA/JPL Horizons.
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_horizons_altaz(target_id, longitude_east, latitude, selected_date):
+    import csv
+    from datetime import timedelta
+    from io import StringIO
+
+    start = selected_date.isoformat()
+    stop = (selected_date + timedelta(days=1)).isoformat()
+    params = {
+        "format": "json",
+        "COMMAND": f"'{target_id}'",
+        "MAKE_EPHEM": "'YES'",
+        "EPHEM_TYPE": "'OBSERVER'",
+        "OBJ_DATA": "'NO'",
+        "CENTER": "'coord@301'",
+        "COORD_TYPE": "'GEODETIC'",
+        "SITE_COORD": f"'{longitude_east},{latitude},0'",
+        "START_TIME": f"'{start}'",
+        "STOP_TIME": f"'{stop}'",
+        "STEP_SIZE": "'1h'",
+        "QUANTITIES": "'4'",
+        "CSV_FORMAT": "'YES'",
+    }
+    response = requests.get(
+        "https://ssd.jpl.nasa.gov/api/horizons.api",
+        params=params,
+        timeout=90,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("error"):
+        raise ValueError(payload["error"])
+    raw = payload.get("result", "")
+    if "$$SOE" not in raw or "$$EOE" not in raw:
+        raise ValueError("JPL Horizons did not return an ephemeris table: " + raw[:500])
+
+    table = raw.split("$$SOE", 1)[1].split("$$EOE", 1)[0]
+    records = []
+    for row in csv.reader(StringIO(table), skipinitialspace=True):
+        if len(row) < 3:
+            continue
+        try:
+            timestamp = pd.to_datetime(row[0].strip().strip('"'), errors="raise")
+            azimuth = float(row[-2].strip())
+            elevation = float(row[-1].strip())
+        except (ValueError, TypeError):
+            continue
+        records.append({
+            "UTC": timestamp,
+            "Azimuth (degrees)": azimuth,
+            "Elevation (degrees)": elevation,
+        })
+    if not records:
+        raise ValueError("JPL Horizons returned no parseable azimuth/elevation samples.")
+    return pd.DataFrame(records)
+
+st.divider()
+st.header("☀️ Sun & Earth geometry — JPL Horizons")
+st.write(
+    "Compare the Sun and Earth above the local geometric horizon at two custom lunar "
+    "surface points and dates. Positions are calculated by NASA/JPL Horizons."
+)
+st.caption(
+    "Enter the east longitude and latitude of each candidate point. The default coordinates "
+    "are generic demonstration points, not the centers of the named LOLA study areas."
+)
+
+with st.expander("Candidate coordinates and dates", expanded=True):
+    ca, cb = st.columns(2)
+    with ca:
+        st.subheader("Scenario A")
+        lon_a = st.number_input("A east longitude (°)", min_value=-180.0, max_value=180.0, value=0.0, step=0.1, key="h_lon_a")
+        lat_a = st.number_input("A latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_a")
+        date_a = st.date_input("A date (UTC)", key="h_date_a")
+    with cb:
+        st.subheader("Scenario B")
+        lon_b = st.number_input("B east longitude (°)", min_value=-180.0, max_value=180.0, value=90.0, step=0.1, key="h_lon_b")
+        lat_b = st.number_input("B latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_b")
+        date_b = st.date_input("B date (UTC)", key="h_date_b")
+
+if st.button("Compare Sun and Earth positions", type="primary", key="run_horizons"):
+    try:
+        with st.spinner("Requesting Sun and Earth ephemerides from JPL Horizons..."):
+            scenarios = []
+            for label, lon, lat, chosen_date in [
+                ("A", lon_a, lat_a, date_a),
+                ("B", lon_b, lat_b, date_b),
+            ]:
+                sun = get_horizons_altaz(10, lon, lat, chosen_date)
+                earth = get_horizons_altaz(399, lon, lat, chosen_date)
+                merged = sun.rename(columns={
+                    "Azimuth (degrees)": "Sun azimuth (°)",
+                    "Elevation (degrees)": "Sun elevation (°)",
+                }).merge(
+                    earth.rename(columns={
+                        "Azimuth (degrees)": "Earth azimuth (°)",
+                        "Elevation (degrees)": "Earth elevation (°)",
+                    }),
+                    on="UTC",
+                    how="inner",
+                )
+                merged["Scenario"] = label
+                merged["Sun above geometric horizon"] = merged["Sun elevation (°)"] > 0
+                merged["Earth above geometric horizon"] = merged["Earth elevation (°)"] > 0
+                scenarios.append(merged)
+            result = pd.concat(scenarios, ignore_index=True)
+            st.session_state["horizons_result"] = result
+            st.session_state["horizons_details"] = {
+                "A": {"longitude": lon_a, "latitude": lat_a, "date": str(date_a)},
+                "B": {"longitude": lon_b, "latitude": lat_b, "date": str(date_b)},
+            }
+    except Exception as exc:
+        st.error("The JPL Horizons comparison could not be completed. Check the connection and try again.")
+        st.caption(f"{type(exc).__name__}: {exc}")
+
+if "horizons_result" in st.session_state:
+    result = st.session_state["horizons_result"]
+    details = st.session_state["horizons_details"]
+    st.subheader("Comparison results")
+    metric_cols = st.columns(4)
+    for idx, label in enumerate(["A", "B"]):
+        subset = result[result["Scenario"] == label]
+        sun_pct = 100 * subset["Sun above geometric horizon"].mean()
+        earth_pct = 100 * subset["Earth above geometric horizon"].mean()
+        metric_cols[idx * 2].metric(f"Scenario {label} — Sun above horizon", f"{sun_pct:.1f}%")
+        metric_cols[idx * 2 + 1].metric(f"Scenario {label} — Earth above horizon", f"{earth_pct:.1f}%")
+
+    sun_fig = go.Figure()
+    earth_fig = go.Figure()
+    for label in ["A", "B"]:
+        subset = result[result["Scenario"] == label]
+        sun_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
+        earth_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
+    for fig, title, ytitle in [
+        (sun_fig, "Sun elevation over the selected UTC day", "Sun elevation (degrees)"),
+        (earth_fig, "Earth elevation over the selected UTC day", "Earth elevation (degrees)"),
+    ]:
+        fig.add_hline(y=0, line_dash="dash", annotation_text="Geometric horizon")
+        fig.update_layout(title=title, xaxis_title="UTC", yaxis_title=ytitle, height=390)
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.dataframe(result, use_container_width=True, hide_index=True)
+    st.download_button(
+        "Download Sun/Earth ephemeris comparison (CSV)",
+        result.to_csv(index=False).encode("utf-8"),
+        "moonsight_horizons_comparison.csv",
+        "text/csv",
+    )
+    st.caption(
+        "Interpretation: positive Sun elevation indicates the Sun is above the local geometric "
+        "reference horizon in Horizons; positive Earth elevation indicates the Earth is above "
+        "that geometric horizon. This is not a terrain-shadow or radio-link simulation. Local "
+        "ridges, crater walls, antenna orientation, link budget, and operational constraints "
+        "can still block power or communication."
+    )
