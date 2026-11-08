@@ -23,6 +23,19 @@ SITES = {
     "Malapert massif": "Site23",
     "de Gerlache-Kocher massif": "Site42",
 }
+# Published center coordinates from NASA's Lunar Surface Data Book (2025).
+# Coordinates are latitude, signed east longitude in degrees.
+SITE_COORDS = {
+    "Connecting ridge": (-89.4632, -137.49),
+    "Shackleton rim": (-89.7668, -171.87),
+    "Nobile rim 1": (-85.4381, 37.36667),
+    "Peak near Shackleton": (-88.8110, 123.6901),
+    "de Gerlache rim": (-88.6834, -67.9321),
+    "Leibnitz beta plateau": (-85.4266, 31.74276),
+    "Leibnitz beta plateau (extended)": (-85.4266, 31.74276),
+    "Malapert massif": (-85.9948, -0.23578),
+    "de Gerlache-Kocher massif": (-85.8296, -116.322),
+}
 PRODUCTS = {
     "Elevation": ("surf", "metres"),
     "Slope": ("slp", "degrees"),
@@ -193,6 +206,7 @@ NASA notes that roughly 90% of pixels in these interpolated polar elevation maps
     st.markdown("[NASA LOLA data archive](https://pgda.gsfc.nasa.gov/data/LOLA_5mpp/)")
     st.markdown("[NASA lunar polar illumination and Earth-visibility maps](https://pgda.gsfc.nasa.gov/products/69)")
     st.markdown("[JPL Horizons API documentation](https://ssd-api.jpl.nasa.gov/doc/horizons.html)")
+    st.markdown("[NASA Lunar Surface Data Book — published site coordinates](https://ntrs.nasa.gov/citations/20250002845)")
     st.markdown("[NASA Moon Trek](https://trek.nasa.gov/moon/)")
     st.error("These measurements alone cannot establish landing safety. MoonSight does not calculate a certified landing score and is not a NASA product.")
 
@@ -266,21 +280,24 @@ st.write(
     "surface points and dates. Positions are calculated by NASA/JPL Horizons."
 )
 st.caption(
-    "Enter the east longitude and latitude of each candidate point. The default coordinates "
-    "are generic demonstration points, not the centers of the named LOLA study areas."
+    "Choose named NASA LOLA study regions. Coordinates are the published center points "
+    "from NASA's Lunar Surface Data Book; they represent regional reference points, not "
+    "a specific landing ellipse."
 )
 
-with st.expander("Candidate coordinates and dates", expanded=True):
+with st.expander("Candidate sites and dates", expanded=True):
     ca, cb = st.columns(2)
     with ca:
         st.subheader("Scenario A")
-        lon_a = st.number_input("A east longitude (°)", min_value=-180.0, max_value=180.0, value=0.0, step=0.1, key="h_lon_a")
-        lat_a = st.number_input("A latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_a")
+        site_a_name = st.selectbox("Candidate site A", list(SITE_COORDS), index=0, key="h_site_a")
+        lat_a, lon_a = SITE_COORDS[site_a_name]
+        st.caption(f"Center: {lat_a:.4f}° latitude, {lon_a:.4f}° east longitude")
         date_a = st.date_input("A date (UT)", key="h_date_a")
     with cb:
         st.subheader("Scenario B")
-        lon_b = st.number_input("B east longitude (°)", min_value=-180.0, max_value=180.0, value=90.0, step=0.1, key="h_lon_b")
-        lat_b = st.number_input("B latitude (°)", min_value=-90.0, max_value=90.0, value=-89.5, step=0.1, key="h_lat_b")
+        site_b_name = st.selectbox("Candidate site B", list(SITE_COORDS), index=1, key="h_site_b")
+        lat_b, lon_b = SITE_COORDS[site_b_name]
+        st.caption(f"Center: {lat_b:.4f}° latitude, {lon_b:.4f}° east longitude")
         date_b = st.date_input("B date (UT)", key="h_date_b")
 
 if st.button("Compare Sun and Earth positions", type="primary", key="run_horizons"):
@@ -312,8 +329,8 @@ if st.button("Compare Sun and Earth positions", type="primary", key="run_horizon
             result["Normalized horizontal solar factor"] = np.maximum(0, np.sin(np.deg2rad(result["Sun elevation (°)"])))
             st.session_state["horizons_result"] = result
             st.session_state["horizons_details"] = {
-                "A": {"longitude": lon_a, "latitude": lat_a, "date": str(date_a)},
-                "B": {"longitude": lon_b, "latitude": lat_b, "date": str(date_b)},
+                "A": {"site": site_a_name, "longitude": lon_a, "latitude": lat_a, "date": str(date_a)},
+                "B": {"site": site_b_name, "longitude": lon_b, "latitude": lat_b, "date": str(date_b)},
             }
     except Exception as exc:
         st.error("The JPL Horizons comparison could not be completed. Check the connection and try again.")
@@ -323,6 +340,7 @@ if "horizons_result" in st.session_state:
     result = st.session_state["horizons_result"]
     details = st.session_state["horizons_details"]
     st.subheader("Comparison results")
+    st.caption(f"Scenario A: {details['A']['site']} ({details['A']['latitude']:.4f}°, {details['A']['longitude']:.4f}°), {details['A']['date']} UT  |  Scenario B: {details['B']['site']} ({details['B']['latitude']:.4f}°, {details['B']['longitude']:.4f}°), {details['B']['date']} UT")
     metric_cols = st.columns(6)
     for idx, label in enumerate(["A", "B"]):
         subset = result[result["Scenario"] == label]
