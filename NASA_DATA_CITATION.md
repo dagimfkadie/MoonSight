@@ -60,3 +60,11 @@ NASA PGDA also provides long-term average polar solar illumination and Earth-vis
 https://pgda.gsfc.nasa.gov/products/69
 
 Those products average over long periods (including an 18.6-year lunar nutation cycle in the described products) and should not be confused with the date-specific Horizons output.
+
+## Published lunar study-region coordinates
+
+The named region-center coordinates used for MoonSight's JPL Horizons scenarios are taken from NASA's 2025 *Lunar Surface Data Book*, Table A2.1-1. The document states that the coordinates were generated from the south-pole LOLA DEM files and that the centers of the original polygons are accurate to approximately 5–10 metres.
+
+NASA Technical Reports Server record: https://ntrs.nasa.gov/citations/20250002845
+
+These coordinates identify regional reference points. They are not the center of a selected landing ellipse and do not establish a safe landing location.
