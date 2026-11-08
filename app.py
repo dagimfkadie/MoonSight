@@ -309,6 +309,7 @@ if st.button("Compare Sun and Earth positions", type="primary", key="run_horizon
                 merged["Earth center above geometric horizon"] = merged["Earth elevation (°)"] > 0
                 scenarios.append(merged)
             result = pd.concat(scenarios, ignore_index=True)
+            result["Normalized horizontal solar factor"] = np.maximum(0, np.sin(np.deg2rad(result["Sun elevation (°)"])))
             st.session_state["horizons_result"] = result
             st.session_state["horizons_details"] = {
                 "A": {"longitude": lon_a, "latitude": lat_a, "date": str(date_a)},
@@ -322,23 +323,28 @@ if "horizons_result" in st.session_state:
     result = st.session_state["horizons_result"]
     details = st.session_state["horizons_details"]
     st.subheader("Comparison results")
-    metric_cols = st.columns(4)
+    metric_cols = st.columns(6)
     for idx, label in enumerate(["A", "B"]):
         subset = result[result["Scenario"] == label]
         sun_pct = 100 * subset["Sun center above geometric horizon"].mean()
         earth_pct = 100 * subset["Earth center above geometric horizon"].mean()
-        metric_cols[idx * 2].metric(f"Scenario {label} — Sun center above horizon", f"{sun_pct:.1f}%")
-        metric_cols[idx * 2 + 1].metric(f"Scenario {label} — Earth center above horizon", f"{earth_pct:.1f}%")
+        base = idx * 3
+        metric_cols[base].metric(f"Scenario {label} — Sun above horizon", f"{sun_pct:.1f}%")
+        metric_cols[base + 1].metric(f"Scenario {label} — Earth center above horizon", f"{earth_pct:.1f}%")
+        metric_cols[base + 2].metric(f"Scenario {label} — mean solar factor", f"{subset['Normalized horizontal solar factor'].mean():.3f}")
 
     sun_fig = go.Figure()
     earth_fig = go.Figure()
+    factor_fig = go.Figure()
     for label in ["A", "B"]:
         subset = result[result["Scenario"] == label]
         sun_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
         earth_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
+        factor_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Normalized horizontal solar factor"], mode="lines+markers", name=f"Scenario {label}"))
     for fig, title, ytitle in [
         (sun_fig, "Sun elevation over the selected UT day", "Sun elevation (degrees)"),
         (earth_fig, "Earth elevation over the selected UT day", "Earth elevation (degrees)"),
+        (factor_fig, "Idealized horizontal solar-incidence proxy", "Normalized factor (0–1)"),
     ]:
         fig.add_hline(y=0, line_dash="dash", annotation_text="Geometric horizon")
         fig.update_layout(title=title, xaxis_title="UT", yaxis_title=ytitle, height=390)
@@ -354,7 +360,7 @@ if "horizons_result" in st.session_state:
     st.caption(
         "Interpretation: positive Sun-center elevation indicates the Sun center is above the local geometric "
         "reference horizon in Horizons; positive Earth-center elevation indicates the Earth center is above "
-        "that geometric horizon. This uses the center of each body, not its full apparent disc, and is not a terrain-shadow or radio-link simulation. Local "
+        "that geometric horizon. The solar factor is max(0, sin(Sun elevation)) for a flat horizontal surface; it is a relative proxy, not actual electrical power. This uses body centers, not full apparent discs, and is not a terrain-shadow or radio-link simulation. Local "
         "ridges, crater walls, antenna orientation, link budget, and operational constraints "
         "can still block power or communication."
     )
