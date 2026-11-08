@@ -334,7 +334,7 @@ if "horizons_result" in st.session_state:
     for label in ["A", "B"]:
         subset = result[result["Scenario"] == label]
         sun_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
-        earth_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
+        earth_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
     for fig, title, ytitle in [
         (sun_fig, "Sun elevation over the selected UT day", "Sun elevation (degrees)"),
         (earth_fig, "Earth elevation over the selected UT day", "Earth elevation (degrees)"),
