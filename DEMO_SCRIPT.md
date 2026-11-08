@@ -21,7 +21,7 @@
 **0:55–1:25 — Sun and Earth geometry**
 
 1. Scroll to the JPL Horizons panel.
-2. Explain that the coordinates must be the actual longitude and latitude of the candidate surface points.
+2. Choose two named NASA LOLA study regions; MoonSight fills their published center coordinates automatically.
 3. Compare two candidate points and dates.
 4. Show the Sun and Earth elevation plots and explain the zero-degree geometric horizon line.
 
@@ -44,7 +44,7 @@
 
 ## Important live-demo checks for Horizons
 
-- Enter real candidate coordinates, not the default demonstration points.
+- Confirm the selected region names and NASA-published coordinates.
 - Confirm the JPL Horizons panel returns a table and both plots.
-- Explain that JPL output is the apparent direction of the body center relative to a geometric reference plane.
+- Explain that JPL output is the apparent direction of each body's center relative to a geometric reference plane.
 - Do not describe positive Earth-center elevation as a confirmed radio link; local terrain and communications engineering are not yet modeled.
