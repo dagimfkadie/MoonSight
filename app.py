@@ -250,7 +250,7 @@ def get_horizons_altaz(target_id, longitude_east, latitude, selected_date):
         except (ValueError, TypeError):
             continue
         records.append({
-            "UTC": timestamp,
+            "UT": timestamp,
             "Azimuth (degrees)": azimuth,
             "Elevation (degrees)": elevation,
         })
@@ -300,7 +300,7 @@ if st.button("Compare Sun and Earth positions", type="primary", key="run_horizon
                         "Azimuth (degrees)": "Earth azimuth (°)",
                         "Elevation (degrees)": "Earth elevation (°)",
                     }),
-                    on="UTC",
+                    on="UT",
                     how="inner",
                 )
                 merged["Scenario"] = label
@@ -324,16 +324,16 @@ if "horizons_result" in st.session_state:
     metric_cols = st.columns(4)
     for idx, label in enumerate(["A", "B"]):
         subset = result[result["Scenario"] == label]
-        sun_pct = 100 * subset["Sun above geometric horizon"].mean()
-        earth_pct = 100 * subset["Earth above geometric horizon"].mean()
-        metric_cols[idx * 2].metric(f"Scenario {label} — Sun above horizon", f"{sun_pct:.1f}%")
-        metric_cols[idx * 2 + 1].metric(f"Scenario {label} — Earth above horizon", f"{earth_pct:.1f}%")
+        sun_pct = 100 * subset["Sun center above geometric horizon"].mean()
+        earth_pct = 100 * subset["Earth center above geometric horizon"].mean()
+        metric_cols[idx * 2].metric(f"Scenario {label} — Sun center above horizon", f"{sun_pct:.1f}%")
+        metric_cols[idx * 2 + 1].metric(f"Scenario {label} — Earth center above horizon", f"{earth_pct:.1f}%")
 
     sun_fig = go.Figure()
     earth_fig = go.Figure()
     for label in ["A", "B"]:
         subset = result[result["Scenario"] == label]
-        sun_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
+        sun_fig.add_trace(go.Scatter(x=subset["UT"], y=subset["Sun elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
         earth_fig.add_trace(go.Scatter(x=subset["UTC"], y=subset["Earth elevation (°)"], mode="lines+markers", name=f"Scenario {label}"))
     for fig, title, ytitle in [
         (sun_fig, "Sun elevation over the selected UT day", "Sun elevation (degrees)"),
