@@ -35,7 +35,7 @@ NASA provides GeoTIFF products at 5 m/pixel with south-polar stereographic X/Y c
 | slperr | Slope uncertainty (RMS) | degrees |
 | ldec | Number of LOLA returns per pixel | count |
 
-NASA's product description notes that roughly 90% of pixels in these interpolated polar elevation maps are interpolated. The return-count and uncertainty products are therefore important context.
+NASA's product description notes that roughly 90% of pixels in the improved 5 m/pixel LDEMs for the initial study regions are interpolated. This should not be assumed identical for every tile or derived layer. The return-count and uncertainty products are therefore important context.
 
 ## Features
 
@@ -68,12 +68,12 @@ streamlit run app.py
 
 - Statistics describe the downsampled preview of an entire archive tile, not a defined landing ellipse.
 - The axes show south-polar stereographic X/Y coordinates in metres, not latitude/longitude.
-- NASA's elevation products are interpolated surfaces; the product description notes that roughly 90% of pixels are interpolated.
+- NASA's product description reports roughly 90% interpolated pixels for the improved LDEMs in its initial study regions; interpolation characteristics should be checked per tile and product.
 - Elevation and slope alone cannot establish landing safety. Local hazards, illumination, thermal conditions, communications, navigation uncertainty, and spacecraft-specific constraints require further analysis.
 - MoonSight does not calculate a certified landing score and must not be used for actual spacecraft navigation or mission decisions.
 - MoonSight is not a NASA product and is not endorsed by NASA.
 
-## Scientific reference
+See [NASA data attribution and citations](NASA_DATA_CITATION.md) for the full data citation and interpretation notes. A short [demo guide](DEMO_SCRIPT.md) is also included.\n\n## Scientific reference
 
 Barker, M. K. et al. (2021). *Improved LOLA Elevation Maps for South Pole Landing Sites: Error Estimates and Their Impact on Illumination Conditions*. Planetary and Space Science, 203, 105119. https://doi.org/10.1016/j.pss.2020.105119
 
