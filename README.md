@@ -43,7 +43,7 @@ MoonSight is being developed for the official [Lunar Landing Site Navigator](htt
 
 The challenge asks teams to help compare lunar south-pole sites and dates by visualizing Sun and Earth positions relative to the horizon, solar power potential, and direct-to-Earth communication opportunities.
 
-MoonSight now includes a JPL Horizons comparison panel that requests date-specific Sun and Earth azimuth/elevation for two user-entered lunar surface coordinates. Users must enter the actual coordinates of their candidate points; the preset coordinates are generic demonstrations and are not the centers of the LOLA archive regions.
+MoonSight now includes a JPL Horizons comparison panel that requests date-specific Sun and Earth azimuth/elevation for two user-entered lunar surface coordinates. Users must enter the actual coordinates of their candidate points; the preset coordinates are generic demonstrations and are not the centers of the LOLA archive regions. The app also displays a normalized horizontal solar-incidence proxy, max(0, sin(Sun elevation)), which is not a real power-generation estimate.
 
 ## Features
 
